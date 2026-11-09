@@ -6,7 +6,7 @@ void	print_log(t_coder *coder, char *msg)
 	pthread_mutex_lock(&coder->data->state_mutex);
 	if (!coder->data->stop_flag || strcmp(msg, "burned out") == 0)
 	{
-		printf("[%lld] %d %s\n", get_time_in_ms() - coder->data->start_time,
+		printf("%lld %d %s\n", get_time_in_ms() - coder->data->start_time,
 			coder->id, msg);
 	}
 	pthread_mutex_unlock(&coder->data->state_mutex);

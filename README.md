@@ -1,127 +1,91 @@
 # Codexion
 
+## English
 
-## Description
-Codexion is a multi-threaded simulation project about resource synchronization and timing in C. It simulates coders who alternate between compiling quantum code, debugging, and refactoring while sharing neighboring USB dongles. The program coordinates dongle access and monitors each coder's burnout deadline.
+A C simulation of developers competing for shared equipment. Each developer needs two USB dongles (license keys) to compile, then spends time debugging and refactoring.
 
-## Instructions
+Only one developer can use a dongle at a time. A developer who cannot start the next compilation before a deadline burns out, ending the simulation. Adjust the number of developers, task durations, and waiting order to explore resource sharing.
 
-### Compilation
-To compile the project with standard flags (`-Wall -Wextra -Werror -pthread`), run the following command at the root directory:
-```bash
+### Build and run
+
+Requires a C compiler, Make, and POSIX threads for concurrent execution.
+
+```sh
 make
+./codexion 4 2000 100 100 100 3 0 fifo
+./codexion 5 2000 100 100 100 3 0 edf
 ```
 
-### Execution
-The program requires exactly 8 positional arguments:
-```bash
-./codexion <number_of_coders> <time_to_burnout> <time_to_compile> <time_to_debug> <time_to_refactor> <number_of_compiles_required> <dongle_cooldown> <scheduler>
+Pass eight arguments in this order. All times are in milliseconds.
+
+| Argument | Meaning |
+| --- | --- |
+| `number_of_coders` | Number of developers |
+| `time_to_burnout` | Deadline measured from the last compilation start |
+| `time_to_compile` | Compilation duration |
+| `time_to_debug` | Debugging duration |
+| `time_to_refactor` | Refactoring duration |
+| `number_of_compiles_required` | Required compilations per developer; 0 means no count limit |
+| `dongle_cooldown` | Delay before a released dongle can be reused |
+| `scheduler` | `fifo` for request order, or `edf` for earliest deadline |
+
+Each log line contains elapsed time, developer number, and action. For example, `0 1 is compiling` means developer 1 starts compiling at the beginning. Execution ends on burnout or when everyone completes the required count.
+
+### Implementation
+
+- Each developer runs in a thread; mutexes protect dongles, shared state, and logs.
+- Condition variables and a heap queue manage waiting developers.
+- Dongles are acquired in increasing ID order to avoid circular waits.
+
+### Tests
+
+```sh
+make test
 ```
 
-*   **Example (FIFO mode):**
-    ```bash
-    ./codexion 4 410 200 100 100 0 0 fifo
-    ```
-*   **Example (EDF mode with explicit compile limit):**
-    ```bash
-    ./codexion 5 800 200 100 100 7 0 edf
-    ```
+Checks FIFO and EDF completion, burnout with one developer, invalid arguments, and log formatting. Each execution has a timeout.
 
-## Resources
-- **POSIX threads:** `pthread` manual pages (IEEE Std 1003.1).
-- **Operating Systems Concepts:** Silberschatz, Galvin, and Gagne; references on Dining Philosophers and Coffman's conditions.
+## 日本語
 
-### AI Usage Disclosure
-AI was used to review pthread and timing API usage and to help organize and proofread this README.
+複数の開発者が共有の機器を取り合いながら作業する様子を再現する、Cのプログラムです。各開発者はコンパイルに2個のUSBドングル（利用許可用のキー）を必要とし、作業後はデバッグとリファクタリングを行います。
 
+同じドングルを同時に使えるのは1人です。次のコンパイルを始められないまま期限を過ぎると、その開発者はバーンアウトして終了します。人数・作業時間・待ち順の決め方を変え、共有資源の待ち合わせを確認できます。
 
-## Blocking cases handled
+### ビルドと実行
 
-### Deadlock Prevention & Coffman's Conditions
-The `take_dongles` function compares the two dongle indices and always requests the smaller index (`low`) before the larger one (`high`). This consistent ordering prevents circular wait during dongle acquisition.
+Cコンパイラ・Make・POSIX threads（複数の処理を同時に動かすためのライブラリ）が必要です。
 
-### EDF Priority Policy
-Under the `edf` option, each dongle's heap queue prioritizes the coder with the earliest estimated burnout deadline (`last_compile_start + time_to_burnout`). This gives urgent requests priority, but does not guarantee starvation-free scheduling.
-
-### Cooldown Handling
-After a coder releases a dongle, it remains unavailable for `dongle_cooldown`. During this wait, `wait_dongle` releases the dongle mutex before sleeping with `usleep`, then locks it again to recheck the queue and cooldown.
-
-### Burnout Monitoring
-The monitor checks coder timestamps in a loop and calls `usleep(1000)` between checks. This requests a 1 ms sleep; actual check and log timing can be longer because of processing time and operating-system scheduling.
-
-### Log Serialization
-The `print_log` function locks the shared `print_mutex` while writing a log line, so concurrent log messages do not interleave.
-
-## Thread synchronization mechanisms
-
-### Primitive Types Used
-*   `pthread_mutex_t`: Utilized to secure individual dongle states, serialize stdout logging operations, and shield shared state metrics.
-*   `pthread_cond_t`: Bound to each individual dongle to put requesting threads into an efficient, low-overhead sleep state until the specific resource is released.
-
-### Shared State and Shutdown
-*   **Coder metrics:** Coders update `last_compile_start` and `compile_count` while holding `state_mutex`; the monitor reads these values under the same mutex.
-*   **Shutdown:** When the monitor detects a burnout or completion, it sets `stop_flag` while holding `state_mutex` and broadcasts on the dongle condition variables to wake waiting threads.
-
-
-# Codexion
-
-
-## 概要
-Codexionは、C言語のマルチスレッド環境におけるリソース同期とタイミングを扱うシミュレーションプロジェクトです。複数のコーダーが円卓を囲み、量子コードのコンパイル、デバッグ、リファクタリングを行います。コンパイルには隣り合う2つのUSBドングルが必要です。プログラムはドングルの利用順序を調整し、各コーダーのバーンアウト期限を監視します。
-
-## 使用方法
-
-### コンパイル
-プロジェクトのルートディレクトリで、以下のコマンドを実行してビルドします。標準コンパイルフラグとして `-Wall -Wextra -Werror -pthread` を使用します。
-```bash
+```sh
 make
+./codexion 4 2000 100 100 100 3 0 fifo
+./codexion 5 2000 100 100 100 3 0 edf
 ```
 
-### 実行方法
-実行時には、次の8つのコマンドライン引数を指定します。
-```bash
-./codexion <number_of_coders> <time_to_burnout> <time_to_compile> <time_to_debug> <time_to_refactor> <number_of_compiles_required> <dongle_cooldown> <scheduler>
+引数は次の8個を、この順で指定します。時間の単位はミリ秒です。
+
+| 引数 | 内容 |
+| --- | --- |
+| `number_of_coders` | コーダーの人数 |
+| `time_to_burnout` | 最後のコンパイル開始からバーンアウトまでの時間 |
+| `time_to_compile` | コンパイルにかかる時間 |
+| `time_to_debug` | デバッグにかかる時間 |
+| `time_to_refactor` | リファクタリングにかかる時間 |
+| `number_of_compiles_required` | 全員が完了すべきコンパイル回数（0で回数制限なし） |
+| `dongle_cooldown` | 解放後のドングルを再利用するまでの時間 |
+| `scheduler` | `fifo`（要求順）または `edf`（期限が近い順） |
+
+1行のログには、開始からの経過時間・コーダーの番号・動作を出力します。例えば `0 1 is compiling` は、コーダー1が開始直後にコンパイルを始めたことを表します。誰かがバーンアウトするか、全員が指定回数のコンパイルを終えると終了します。
+
+### 実装メモ
+
+- 各コーダーをスレッドとして動かし、ドングル・共有状態・ログをミューテックスで保護します。
+- ドングルの待機には条件変数とヒープキューを使い、取得順を調整します。
+- 2つのドングルを番号の小さい順に取得し、循環待ちを防ぎます。
+
+### テスト
+
+```sh
+make test
 ```
 
-*   **実行例（FIFOモード）:**
-    ```bash
-    ./codexion 4 410 200 100 100 0 0 fifo
-    ```
-*   **実行例（コンパイル回数を指定したEDFモード）:**
-    ```bash
-    ./codexion 5 800 200 100 100 7 0 edf
-    ```
-
-## 参照・使用リソース
-- **POSIX threads:** `pthread` のマニュアルページ（IEEE Std 1003.1）。
-- **Operating Systems Concepts:** Silberschatz、Galvin、Gagne 著。食事する哲学者問題とコフマンの条件の参考にしました。
-
-### AIの使用
-pthreadと時間計測関数の使い方の確認、READMEの構成と推敲にAIを利用しました。
-
-## 同期と待機の設計
-
-### ドングル取得順序によるデッドロック防止
-`take_dongles` は左右のドングルの番号を比較し、必ず小さい番号（`low`）から大きい番号（`high`）の順に取得します。この順序付けにより、ドングル取得時の循環待ちを防ぎます。
-
-### EDFによる優先順位付け
-`edf` オプションでは、各ドングルのヒープキューで推定バーンアウト期限（`last_compile_start + time_to_burnout`）が最も早いコーダーを優先します。緊急度の高い要求を先に扱う仕組みですが、飢餓が起きないことを保証するものではありません。
-
-### 冷却時間の管理
-ドングルは解放後、設定された冷却時間（`dongle_cooldown`）が過ぎるまで使用できません。`wait_dongle` は待機中にドングルのミューテックスを解放して `usleep` を呼び、起床後に再取得してキューと冷却時間を確認します。
-
-### バーンアウト監視
-`usleep(1000)` を各チェックの間に呼び、モニタースレッドがコーダーの時刻を繰り返し確認します。これは1msのスリープを要求しますが、処理時間やOSのスケジューリングによって実際の検出・出力は遅れる場合があります。
-
-### ログ出力の排他制御
-`print_log` はログ行を出力する間、共有ミューテックス `print_mutex` をロックします。これにより、複数スレッドからのログ出力が交錯しないようにしています。
-
-## スレッド同期メカニズム
-
-### 使用したスレッドプリミティブ
-*   `pthread_mutex_t`: ドングルの排他制御、ログ出力の保護（`print_mutex`）、コーダーの状態変数の保護（`state_mutex`）に使用します。
-*   `pthread_cond_t`: 各ドングルに対応する条件変数です。ドングルが使用可能になるまで、要求スレッドを待機させるために使用します。
-
-### 共有状態と終了処理
-*   **コーダーの状態:** `last_compile_start` と `compile_count` の更新と読み取りには、どちらも `state_mutex` を使用します。
-*   **終了通知:** モニターはバーンアウト、または必要なコンパイル回数への到達を検知すると、`state_mutex` をロックして `stop_flag` を設定します。続いて、各ドングルの条件変数にブロードキャスト通知を送り、待機中のスレッドを起こします。
+FIFO・EDFの完了条件、1人の場合のバーンアウト、無効な引数、ログ形式を確認します。各実行にはタイムアウトを設けています。

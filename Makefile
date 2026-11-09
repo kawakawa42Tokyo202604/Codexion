@@ -42,3 +42,10 @@ valgrind: re
 	valgrind --leak-check=full --show-leak-kinds=all --track-origins=yes ./$(NAME) 4 410 200 100 100 3 0 fifo
 
 .PHONY: all clean fclean re valgrind
+
+PYTHON ?= python3
+
+test: $(NAME)
+	$(PYTHON) -m unittest discover -s tests -v
+
+.PHONY: test

@@ -77,5 +77,5 @@ int	init(t_data *data, char *av[], t_coder **coders)
 	*coders = malloc_coders(data);
 	if (!*coders)
 		return (1);
-	return (printf("OK\n"), 0);
+	return (0);
 }

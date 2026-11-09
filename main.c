@@ -54,7 +54,8 @@ static int	is_error(int ac, char *av[])
 			return (printf("Invalid syntax\n"), 1);
 		++i;
 	}
-	if (strcmp(av[8], "fifo") != 0 && strcmp(av[8], "edf") != 0)
+	if (atoi(av[1]) == 0 || (strcmp(av[8], "fifo") != 0
+			&& strcmp(av[8], "edf") != 0))
 		return (printf("Invalid syntax\n"), 1);
 	return (0);
 }
